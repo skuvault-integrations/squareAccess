@@ -4,7 +4,7 @@
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
     <Authors>SkuVault</Authors>
     <Company>SkuVault</Company>
-    <Version>1.1.10.0-alpha</Version>
+    <Version>1.1.10.0</Version>
     <Description>SquareAccess webservices API wrapper</Description>
     <Copyright>SkuVault © 2019-2021</Copyright>
     <PackageLicenseUrl>https://github.com/skuvault/squareAccess/blob/master/LICENSE</PackageLicenseUrl>
