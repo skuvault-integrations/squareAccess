@@ -18,7 +18,9 @@ namespace SquareAccessTests
 	{
 		private ISquareOrdersService _ordersService;
 		private bool _firstPage;
-		private const string TestLocationId = "8Q9RHBKTRDAG8";
+		private const string TestLocationId = "1GZS83Z3FC3Y3";
+		private readonly DateTime startDateUtc = DateTime.UtcNow.AddDays(-20);
+		private readonly DateTime endDateUtc = DateTime.UtcNow;		
 
 		[ SetUp ]
 		public void Init()
@@ -28,10 +30,7 @@ namespace SquareAccessTests
 
 		[ Test ]
 		public void GetOrdersAsync()
-		{
-			var startDateUtc = new DateTime( 1971, 1, 1 );
-			var endDateUtc = DateTime.MaxValue;
-
+		{						
 			var result = _ordersService.GetOrdersAsync( startDateUtc, endDateUtc, CancellationToken.None ).Result;
 
 			result.Should().NotBeEmpty();
@@ -39,9 +38,7 @@ namespace SquareAccessTests
 
 		[ Test ]
 		public void GetOrdersAsync_ByPage()
-		{
-			var startDateUtc = new DateTime( 1971, 1, 1 );
-			var endDateUtc = DateTime.MaxValue;
+		{			
 			this.Config.OrdersPageSize = 2;
 
 			var result = _ordersService.GetOrdersAsync( startDateUtc, endDateUtc, CancellationToken.None ).Result;
@@ -51,9 +48,7 @@ namespace SquareAccessTests
 
 		[ Test ]
 		public void CreateSearchOrdersBody()
-		{
-			var startDateUtc = new DateTime( 1971, 1, 1 );
-			var endDateUtc = DateTime.MaxValue;
+		{						
 			var locations = new List< SquareLocation >
 			{
 				new SquareLocation
@@ -79,9 +74,7 @@ namespace SquareAccessTests
 
 		[ Test ]
 		public void CollectOrdersFromAllPagesAsync()
-		{
-			var startDateUtc = new DateTime( 1971, 1, 1 );
-			var endDateUtc = DateTime.MaxValue;
+		{			
 			const int ordersPerPage = 2;
 			_firstPage = true;
 			const string catalogObjectId = "asldfjlkj";
