@@ -20,6 +20,7 @@ namespace SquareAccess.Services.Orders
 		private readonly ISquareLocationsService _locationsService;
 		private readonly ISquareItemsService _itemsService;
 		private readonly OrdersApi _ordersApi;
+		private const int MaxLocationBatchSize = 10;
 		public delegate Task< SquareOrdersBatch > GetOrdersWithRelatedDataAsyncDelegate( SearchOrdersRequest requestBody );
 
 		public SquareOrdersService( SquareConfig config, SquareMerchantCredentials credentials, ISquareLocationsService locationsService, ISquareItemsService itemsService ) : base( config, credentials )
@@ -77,26 +78,36 @@ namespace SquareAccess.Services.Orders
 			return response;
 		}
 
-		public static async Task< IEnumerable< SquareOrder > > CollectOrdersFromAllPagesAsync( DateTime startDateUtc, DateTime endDateUtc, IEnumerable< SquareLocation > locations, GetOrdersWithRelatedDataAsyncDelegate getOrdersWithRelatedDataMethod, int ordersPerPage )
+		public static async Task<IEnumerable<SquareOrder>> CollectOrdersFromAllPagesAsync(DateTime startDateUtc,
+			DateTime endDateUtc, IEnumerable<SquareLocation> locations,
+			GetOrdersWithRelatedDataAsyncDelegate getOrdersWithRelatedDataMethod, int ordersPerPage)
 		{
-			var orders = new List< SquareOrder >();
-			var cursor = "";
-			SearchOrdersRequest requestBody;
-			SquareOrdersBatch ordersInPage;
+			var orders = new List<SquareOrder>();
+			// Split locations into batches of 10, as the SearchOrders Square API supports a maximum of 10 location IDs per request. See PBL-9319 for context.
+			var locationBatches = locations.SplitToChunks(MaxLocationBatchSize);
 
-			do
+			foreach (var locationBatch in locationBatches)
 			{
-				requestBody = CreateSearchOrdersBody( startDateUtc, endDateUtc, locations, cursor, ordersPerPage );
-				ordersInPage = ( await getOrdersWithRelatedDataMethod( requestBody ).ConfigureAwait( false ) );
-				if( ordersInPage?.Orders != null ) 
-				{ 
-					orders.AddRange( ordersInPage.Orders );	
-					cursor = ordersInPage.Cursor;
-				} else
+				var cursor = "";
+				SearchOrdersRequest requestBody;
+				SquareOrdersBatch ordersInPage;
+
+				do
 				{
-					cursor = "";
-				}
-			} while( !string.IsNullOrWhiteSpace( cursor ) );
+					requestBody =
+						CreateSearchOrdersBody(startDateUtc, endDateUtc, locationBatch, cursor, ordersPerPage);
+					ordersInPage = await getOrdersWithRelatedDataMethod(requestBody).ConfigureAwait(false);
+					if (ordersInPage?.Orders != null)
+					{
+						orders.AddRange(ordersInPage.Orders);
+						cursor = ordersInPage.Cursor;
+					}
+					else
+					{
+						cursor = "";
+					}
+				} while (!string.IsNullOrWhiteSpace(cursor));
+			}
 
 			return orders;
 		}

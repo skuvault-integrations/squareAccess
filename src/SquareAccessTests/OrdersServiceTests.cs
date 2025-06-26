@@ -136,7 +136,33 @@ namespace SquareAccessTests
 			firstLineItem.Quantity.Should().Be( quantity );
 			result.Skip( 1 ).First().OrderId.Should().BeEquivalentTo( orders.Skip( 1 ).First().Id );
 		}
+		
+		[Test]
+		public async Task CollectOrdersFromAllPagesAsync_ShouldBatchLocationsCorrectly()
+		{
+			// Arrange
+			var locations = Enumerable.Range(1, 25).Select(i => new SquareLocation { Id = i.ToString() }).ToList();
+			const int ordersPerPage = 5;
 
+			var fakeOrdersService = new FakeOrdersService();
+
+			// Act
+			var result = await SquareOrdersService.CollectOrdersFromAllPagesAsync(
+				startDateUtc,
+				endDateUtc,
+				locations,
+				fakeOrdersService.MockGetOrdersWithRelatedDataMethod,
+				ordersPerPage
+			);
+
+			// Assert
+			result.Should().NotBeNull();
+			fakeOrdersService.CallCounts.Count.Should().Be(3); // 3 batches of locations
+			fakeOrdersService.CallCounts[0].Should().Be(10);
+			fakeOrdersService.CallCounts[1].Should().Be(10);
+			fakeOrdersService.CallCounts[2].Should().Be(5);
+		}
+		
 		private async Task< SquareOrdersBatch > GetOrdersWithRelatedData( IEnumerable< Order > orders, IEnumerable< SquareItem > items)
 		{
 			SquareOrdersBatch result;
