@@ -84,6 +84,7 @@
     <Compile Include="LocationMapperTests.cs" />
     <Compile Include="Mocks\FakeLocationsService.cs" />
     <Compile Include="LocationsServiceTests.cs" />
+    <Compile Include="Mocks\FakeOrdersService.cs" />
     <Compile Include="Mocks\FakeSquareItemsService.cs" />
     <Compile Include="OrderMapperTests.cs" />
     <Compile Include="OrderRecipientMapperTests.cs" />
