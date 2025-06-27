@@ -48,7 +48,7 @@ namespace SquareAccessTests
         }
 
         [Test]
-        public async Task GetOrdersAsync_ShouldThrowException_WhenNoLocations()
+        public async Task GetOrdersAsync_ShouldThrowSquareException_WhenNoLocations()
         {
             // Arrange
             var service = new SquareOrdersService(
