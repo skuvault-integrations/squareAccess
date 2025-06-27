@@ -40,20 +40,22 @@ namespace SquareAccess.Services.Orders
 		/// <param name="endDateUtc"></param>
 		/// <param name="token">Cancellation token for cancelling call to endpoint</param>
 		/// <returns></returns>
-		public async Task< IEnumerable< SquareOrder > > GetOrdersAsync( DateTime startDateUtc, DateTime endDateUtc, CancellationToken token )
+		public async Task<IEnumerable<SquareOrder>> GetOrdersAsync(DateTime startDateUtc, DateTime endDateUtc,
+			CancellationToken token)
 		{
-			Condition.Requires( startDateUtc ).IsLessThan( endDateUtc );
+			Condition.Requires(startDateUtc).IsLessThan(endDateUtc);
 
 			var mark = Mark.CreateNew();
-			if ( token.IsCancellationRequested )
+			if (token.IsCancellationRequested)
 			{
-				var exceptionDetails = CreateMethodCallInfo( "", mark, additionalInfo: this.AdditionalLogInfo() );
-				var squareException = new SquareException( string.Format( "{0}. Get orders request was cancelled", exceptionDetails ) );
-				SquareLogger.LogTraceException( squareException );
+				var exceptionDetails = CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo());
+				var squareException =
+					new SquareException(string.Format("{0}. Get orders request was cancelled", exceptionDetails));
+				SquareLogger.LogTraceException(squareException);
 				throw squareException;
 			}
 
-			IEnumerable< SquareOrder > response = null;
+			IEnumerable<SquareOrder> response = null;
 
 			try
 			{
@@ -69,10 +71,12 @@ namespace SquareAccess.Services.Orders
 					throw squareException;
 				}
 
-				SquareLogger.LogTrace( this.CreateMethodCallInfo( "", mark, payload: locations.ToJson(), additionalInfo: this.AdditionalLogInfo() ) );
+				SquareLogger.LogTrace(CreateMethodCallInfo("", mark, payload: locations.ToJson(),
+					additionalInfo: AdditionalLogInfo()));
 
-				response = await CollectOrdersFromAllPagesAsync( startDateUtc, endDateUtc, locations, 
-					( requestBody ) => GetOrdersWithRelatedDataAsync( requestBody, token, mark ), this.Config.OrdersPageSize ).ConfigureAwait( false );
+				response = await CollectOrdersFromAllPagesAsync(startDateUtc, endDateUtc, locations,
+						(requestBody) => GetOrdersWithRelatedDataAsync(requestBody, token, mark), Config.OrdersPageSize)
+					.ConfigureAwait(false);
 
 				SquareLogger.LogEnd(CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo()));
 			}
