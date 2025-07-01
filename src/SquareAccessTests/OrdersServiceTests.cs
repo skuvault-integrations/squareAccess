@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using NUnit.Framework;
 using Square.Connect.Model;
+using SquareAccess.Exceptions;
 using SquareAccess.Models;
 using SquareAccess.Models.Items;
 using SquareAccess.Services.Orders;
@@ -44,6 +45,29 @@ namespace SquareAccessTests
 			var result = _ordersService.GetOrdersAsync( startDateUtc, endDateUtc, CancellationToken.None ).Result;
 
 			result.Count().Should().BeGreaterOrEqualTo( 2 );
+		}
+
+		[Test]
+		public async Task GetOrdersAsync_ShouldThrowSquareException_WhenNoLocations()
+		{
+			// Arrange
+			var service = new SquareOrdersService(
+				Config,
+				Credentials,
+				new FakeLocationsService(() => Enumerable.Empty<SquareLocation>()),
+				new FakeSquareItemsService()
+			);
+
+			// Act & Assert
+			var exception = Assert.ThrowsAsync<SquareException>(async () =>
+			{
+				await service.GetOrdersAsync(startDateUtc, endDateUtc, CancellationToken.None);
+			});
+
+			Assert.That(
+				exception?.Message,
+				Does.Contain("No active locations. At least one is required to send SearchOrders request.")
+			);
 		}
 
 		[ Test ]
@@ -124,7 +148,7 @@ namespace SquareAccessTests
 				}
 			};
 
-			var result = SquareOrdersService.CollectOrdersFromAllPagesAsync( startDateUtc, endDateUtc, new List< SquareLocation >(), 
+			var result = SquareOrdersService.CollectOrdersFromAllPagesAsync( startDateUtc, endDateUtc, new List< SquareLocation > { new SquareLocation { Id = TestLocationId } }, 
 				( requestBody ) => GetOrdersWithRelatedData( orders, items ), ordersPerPage ).Result.ToList();
 
 			result.Count.Should().Be( 2 );
@@ -135,6 +159,32 @@ namespace SquareAccessTests
 			firstLineItem.Sku.Should().Be( sku );
 			firstLineItem.Quantity.Should().Be( quantity );
 			result.Skip( 1 ).First().OrderId.Should().BeEquivalentTo( orders.Skip( 1 ).First().Id );
+		}
+
+		[Test]
+		public async Task CollectOrdersFromAllPagesAsync_ShouldBatchLocationsCorrectly()
+		{
+			// Arrange
+			var locations = Enumerable.Range(1, 25).Select(i => new SquareLocation { Id = i.ToString() }).ToList();
+			const int ordersPerPage = 5;
+
+			var fakeOrdersService = new FakeOrdersService();
+
+			// Act
+			var result = await SquareOrdersService.CollectOrdersFromAllPagesAsync(
+				startDateUtc,
+				endDateUtc,
+				locations,
+				fakeOrdersService.MockGetOrdersWithRelatedDataMethod,
+				ordersPerPage
+			);
+
+			// Assert
+			Assert.That(result, Is.Not.Null);
+			Assert.That(fakeOrdersService.CallCounts.Count, Is.EqualTo(3)); // 3 batches of locations
+			Assert.That(fakeOrdersService.CallCounts[0], Is.EqualTo(10));
+			Assert.That(fakeOrdersService.CallCounts[1], Is.EqualTo(10));
+			Assert.That(fakeOrdersService.CallCounts[2], Is.EqualTo(5));
 		}
 
 		private async Task< SquareOrdersBatch > GetOrdersWithRelatedData( IEnumerable< Order > orders, IEnumerable< SquareItem > items)
