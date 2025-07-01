@@ -20,6 +20,7 @@ namespace SquareAccess.Services.Orders
 		private readonly ISquareLocationsService _locationsService;
 		private readonly ISquareItemsService _itemsService;
 		private readonly OrdersApi _ordersApi;
+		private const int MaxLocationBatchSize = 10;
 		public delegate Task< SquareOrdersBatch > GetOrdersWithRelatedDataAsyncDelegate( SearchOrdersRequest requestBody );
 
 		public SquareOrdersService( SquareConfig config, SquareMerchantCredentials credentials, ISquareLocationsService locationsService, ISquareItemsService itemsService ) : base( config, credentials )
@@ -39,64 +40,87 @@ namespace SquareAccess.Services.Orders
 		/// <param name="endDateUtc"></param>
 		/// <param name="token">Cancellation token for cancelling call to endpoint</param>
 		/// <returns></returns>
-		public async Task< IEnumerable< SquareOrder > > GetOrdersAsync( DateTime startDateUtc, DateTime endDateUtc, CancellationToken token )
+		public async Task<IEnumerable<SquareOrder>> GetOrdersAsync(DateTime startDateUtc, DateTime endDateUtc,
+			CancellationToken token)
 		{
-			Condition.Requires( startDateUtc ).IsLessThan( endDateUtc );
+			Condition.Requires(startDateUtc).IsLessThan(endDateUtc);
 
 			var mark = Mark.CreateNew();
-			if ( token.IsCancellationRequested )
+			if (token.IsCancellationRequested)
 			{
-				var exceptionDetails = CreateMethodCallInfo( "", mark, additionalInfo: this.AdditionalLogInfo() );
-				var squareException = new SquareException( string.Format( "{0}. Get orders request was cancelled", exceptionDetails ) );
-				SquareLogger.LogTraceException( squareException );
+				var exceptionDetails = CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo());
+				var squareException =
+					new SquareException(string.Format("{0}. Get orders request was cancelled", exceptionDetails));
+				SquareLogger.LogTraceException(squareException);
 				throw squareException;
 			}
 
-			IEnumerable< SquareOrder > response = null;
+			IEnumerable<SquareOrder> response = null;
 
 			try
 			{
-				SquareLogger.LogStarted( this.CreateMethodCallInfo( "", mark, additionalInfo: this.AdditionalLogInfo() ) );
+				SquareLogger.LogStarted(CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo()));
 
-				var locations = await _locationsService.GetActiveLocationsAsync( token, mark ).ConfigureAwait( false );
+				var locations = await _locationsService.GetActiveLocationsAsync(token, mark).ConfigureAwait(false);
+				if (locations == null || !locations.Any())
+				{
+					var exceptionDetails = CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo());
+					var squareException = new SquareException(
+						$"No active locations. At least one is required to send SearchOrders request. {exceptionDetails}");
+					SquareLogger.LogTraceException(squareException);
+					throw squareException;
+				}
 
-				SquareLogger.LogTrace( this.CreateMethodCallInfo( "", mark, payload: locations.ToJson(), additionalInfo: this.AdditionalLogInfo() ) );
+				SquareLogger.LogTrace(CreateMethodCallInfo("", mark, payload: locations.ToJson(),
+					additionalInfo: AdditionalLogInfo()));
 
-				response = await CollectOrdersFromAllPagesAsync( startDateUtc, endDateUtc, locations, 
-					( requestBody ) => GetOrdersWithRelatedDataAsync( requestBody, token, mark ), this.Config.OrdersPageSize ).ConfigureAwait( false );
+				response = await CollectOrdersFromAllPagesAsync(startDateUtc, endDateUtc, locations,
+						(requestBody) => GetOrdersWithRelatedDataAsync(requestBody, token, mark), Config.OrdersPageSize)
+					.ConfigureAwait(false);
 
-				SquareLogger.LogEnd( this.CreateMethodCallInfo( "", mark, additionalInfo: this.AdditionalLogInfo() ) );
+				SquareLogger.LogEnd(CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo()));
 			}
-			catch ( Exception ex )
+			catch (Exception ex)
 			{
-				var squareException = new SquareException( this.CreateMethodCallInfo( "", mark, additionalInfo: this.AdditionalLogInfo() ), ex );
-				SquareLogger.LogTraceException( squareException );
+				var message = $"{ex.Message} {CreateMethodCallInfo("", mark, additionalInfo: AdditionalLogInfo())}";
+				var squareException = new SquareException(message, ex);
+				SquareLogger.LogTraceException(squareException);
 				throw squareException;
 			}
 
 			return response;
 		}
 
-		public static async Task< IEnumerable< SquareOrder > > CollectOrdersFromAllPagesAsync( DateTime startDateUtc, DateTime endDateUtc, IEnumerable< SquareLocation > locations, GetOrdersWithRelatedDataAsyncDelegate getOrdersWithRelatedDataMethod, int ordersPerPage )
+		public static async Task<IEnumerable<SquareOrder>> CollectOrdersFromAllPagesAsync(DateTime startDateUtc,
+			DateTime endDateUtc, IEnumerable<SquareLocation> locations,
+			GetOrdersWithRelatedDataAsyncDelegate getOrdersWithRelatedDataMethod, int ordersPerPage)
 		{
-			var orders = new List< SquareOrder >();
-			var cursor = "";
-			SearchOrdersRequest requestBody;
-			SquareOrdersBatch ordersInPage;
+			var orders = new List<SquareOrder>();
+			// Split locations into batches of 10, as the SearchOrders Square API supports a maximum of 10 location IDs per request. See PBL-9319 for context.
+			var locationBatches = locations.SplitToChunks(MaxLocationBatchSize);
 
-			do
+			foreach (var locationBatch in locationBatches)
 			{
-				requestBody = CreateSearchOrdersBody( startDateUtc, endDateUtc, locations, cursor, ordersPerPage );
-				ordersInPage = ( await getOrdersWithRelatedDataMethod( requestBody ).ConfigureAwait( false ) );
-				if( ordersInPage?.Orders != null ) 
-				{ 
-					orders.AddRange( ordersInPage.Orders );	
-					cursor = ordersInPage.Cursor;
-				} else
+				var cursor = "";
+				SearchOrdersRequest requestBody;
+				SquareOrdersBatch ordersInPage;
+
+				do
 				{
-					cursor = "";
-				}
-			} while( !string.IsNullOrWhiteSpace( cursor ) );
+					requestBody =
+						CreateSearchOrdersBody(startDateUtc, endDateUtc, locationBatch, cursor, ordersPerPage);
+					ordersInPage = await getOrdersWithRelatedDataMethod(requestBody).ConfigureAwait(false);
+					if (ordersInPage?.Orders != null)
+					{
+						orders.AddRange(ordersInPage.Orders);
+						cursor = ordersInPage.Cursor;
+					}
+					else
+					{
+						cursor = "";
+					}
+				} while (!string.IsNullOrWhiteSpace(cursor));
+			}
 
 			return orders;
 		}
