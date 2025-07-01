@@ -196,28 +196,31 @@ namespace SquareAccessTests
             Assert.That(fakeOrdersService.CallCounts[2], Is.EqualTo(5));
         }
 
-        private async Task<SquareOrdersBatch> GetOrdersWithRelatedData(IEnumerable<Order> orders,
-            IEnumerable<SquareItem> items)
+        private async Task< SquareOrdersBatch > GetOrdersWithRelatedData( IEnumerable< Order > orders, IEnumerable< SquareItem > items)
         {
             SquareOrdersBatch result;
-
-            if (_firstPage)
+			
+            if( _firstPage )
+            {
                 result = new SquareOrdersBatch
                 {
-                    Orders = new List<SquareOrder>
+                    Orders = new List< SquareOrder >
                     {
-                        orders.First().ToSvOrder(items)
+                        orders.First().ToSvOrder( items )
                     },
-                    Cursor = "fas23afs"
+                    Cursor =  "fas23afs"
                 };
+            }
             else
+            {
                 result = new SquareOrdersBatch
                 {
-                    Orders = new List<SquareOrder>
+                    Orders = new List< SquareOrder >
                     {
-                        orders.Skip(1).First().ToSvOrder(null)
+                        orders.Skip( 1 ).First().ToSvOrder( null )
                     }
                 };
+            }
 
             _firstPage = false;
 
