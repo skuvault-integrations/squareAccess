@@ -172,7 +172,7 @@ namespace SquareAccess.Services.Orders
 				throw squareException;
 			}
 
-			var response = await base.ThrottleRequest( SquareEndPoint.SearchCatalogUrl, requestBody.ToJson(), mark, ( _ ) =>
+			var response = await base.ThrottleRequest( SquareEndPoint.OrdersSearchUrl, requestBody.ToJson(), mark, ( _ ) =>
 			{
 				return  _ordersApi.SearchOrdersAsync( requestBody );
 			}, token ).ConfigureAwait( false );
