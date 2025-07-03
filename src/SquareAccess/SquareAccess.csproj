@@ -4,7 +4,7 @@
     <TargetFrameworks>netstandard2.0;net48</TargetFrameworks>
     <Authors>SkuVault</Authors>
     <Company>SkuVault</Company>
-    <Version>1.1.13.0-alpha.3</Version>
+    <Version>1.1.13.0</Version>
     <Description>SquareAccess webservices API wrapper</Description>
     <Copyright>SkuVault © 2019-2025</Copyright>
     <PackageLicenseUrl></PackageLicenseUrl>
