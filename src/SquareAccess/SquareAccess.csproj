@@ -20,7 +20,7 @@
   <ItemGroup>
     <PackageReference Include="CuttingEdge.Conditions" Version="1.2.0" />
     <PackageReference Include="Netco" Version="2.0.2" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
     <PackageReference Include="NMoneys" Version="4.5.0" />
     <PackageReference Include="Polly" Version="7.2.2" />
     <PackageReference Include="Square.Connect.SV" Version="2.22.2.3" />
